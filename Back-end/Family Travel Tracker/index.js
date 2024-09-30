@@ -26,17 +26,23 @@ let users = [
 ];
 
 let countries = [];
-
-async function checkVisisted() {
+async function checkVisited() {
   const result = await db.query(
-    "SELECT country_code FROM visited_countries JOIN users ON users.id = user_id WHERE user_id = $1; ",
+    "SELECT TRIM(country_code) AS country_code FROM visited_countries WHERE user_id = $1;",
     [currentUserId]
   );
+
+  let countries = [];
   result.rows.forEach((country) => {
     countries.push(country.country_code);
   });
+
+  // 打印调试信息
+  console.log("Visited countries for user", currentUserId, ":", countries);
+  
   return countries;
 }
+
 
 async function checkUser() {
   const result =await db.query("SELECT * FROM users");
@@ -48,7 +54,7 @@ async function checkUser() {
 
 app.get("/", async (req, res) => {
   const currentUser =await checkUser();  
-  const countries = await checkVisisted();
+  const countries = await checkVisited();
 
   res.render("index.ejs", {
     countries: countries,
@@ -57,8 +63,10 @@ app.get("/", async (req, res) => {
     color: currentUser.color,
   });
 });
+
 app.post("/add", async (req, res) => {
   const input = req.body["country"];
+  console.log("User input:", input);
   const currentUser =await checkUser(); 
 
   try {
@@ -68,12 +76,15 @@ app.post("/add", async (req, res) => {
     );
 
     const data = result.rows[0];
+    console.log("Query result:", result.rows);
     const countryCode = data.country_code;
     try {
       await db.query(
         "INSERT INTO visited_countries (country_code, user_id) VALUES ($1, $2)",
         [countryCode, currentUserId]
       );
+      console.log("Country successfully inserted:", countryCode, "for user:", currentUserId);
+
       res.redirect("/");
     } catch (err) {
       console.log(err);
